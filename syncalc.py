@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 from itertools import chain, combinations
+from pprint import pprint
 import pickle
+import csv
 
 
 ########################
@@ -148,3 +150,65 @@ try:
 except:
     syncretisms = all_syncretisms()
     pickle.dump(syncretisms, open("syncretisms.p", "wb"))
+
+
+##################
+#  Analyze Data  #
+##################
+
+def read_data(filename: str='data.csv') -> list:
+    patterns = []
+    with open('data.csv') as datafile:
+        data = csv.reader(datafile)
+        for row in data:
+            patterns.append(tuple(row[2:8]))
+    return patterns
+
+
+def overgeneration(algebra: set, data: list) -> list:
+    return [pattern for pattern in algebra if pattern not in data]
+
+
+def undergeneration(algebra: set, data: list) -> list:
+    return [pattern for pattern in data if pattern not in algebra]
+
+
+def all_generation(function=overgeneration) -> dict:
+    data = list(set(read_data()))
+    return {key: set(function(syncretisms[key], data))
+            for key in syncretisms.keys()}
+
+
+def show_generation(function=overgeneration):
+    generated = all_generation(function=function)
+
+    for key, val in generated.items():
+        print(key, ":", len(val))
+        pprint(sorted(list(val)))
+        print("--------------")
+
+
+def all_overgeneration() -> dict:
+    return all_generation(function=overgeneration)
+
+
+def all_undergeneration() -> dict:
+    return all_generation(function=undergeneration)
+
+
+def show_overgeneration():
+    return show_generation(function=overgeneration)
+
+
+def show_undergeneration():
+    return show_generation(function=undergeneration)
+
+
+def show_generators(algebras: dict, patterns: list) -> dict:
+    overview = {}
+    for pattern in patterns:
+        overview[pattern] = set()
+        for algebra, generated in algebras.items():
+            if pattern in generated and algebra != 'total':
+                overview[pattern].add(algebra)
+    return overview
