@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from itertools import chain, combinations
+from itertools import chain, combinations, product
 from pprint import pprint
 import pickle
 import csv
@@ -212,3 +212,103 @@ def show_generators(algebras: dict, patterns: list) -> dict:
             if pattern in generated and algebra != 'total':
                 overview[pattern].add(algebra)
     return overview
+
+
+#############################
+#  Monotonicity Calculator  #
+#############################
+
+base_algebras = {(plab, nlab): reachability_closure(crossalgebra(p, n))
+                 for plab, p in person_hrcs.items()
+                 for nlab, n in number_hrcs.items()}
+
+
+def relabel_algebra(algebra, syncretism):
+    presentation = ['1s', '2s', '3s', '1p', '2p', '3p']
+    labeling = dict(zip(presentation, syncretism))
+    return {(labeling[a], labeling[b])
+            for (a, b) in algebra}
+
+
+def test_monotonicity(algebra, syncretism):
+    algebra = relabel_algebra(algebra, syncretism)
+    for a, b in algebra:
+        if a != b:
+            for c, d in algebra:
+                if (a, b) == (d, c):
+                    return False
+    return True
+
+
+def is_monotonic(algebras, syncretism):
+    return [key for key, val in algebras.items()
+            if test_monotonicity(val, syncretism)]
+
+
+def show_monotonicity(algebras=base_algebras, data=read_data()):
+    return {syncretism: is_monotonic(algebras, syncretism)
+            for syncretism in data}
+
+
+def all_patterns(cells=6):
+    letters = [[chr(65 + number) for number in range(cells)]
+               for _ in range(cells)]
+    return [i for i in product(*letters)]
+
+
+try:
+    patterns = pickle.load(open("patterns.p", "rb"))
+except:
+    patterns = all_patterns()
+    pickle.dump(patterns, open("patterns.p", "wb"))
+
+
+def all_monotonicity():
+    return show_monotonicity(base_algebras, patterns)
+
+
+def letter_to_number(xs):
+    if not xs:
+        return xs
+
+    ys = [1]
+    for pos in range(1, len(xs)):
+        x = xs[pos]
+        for left in range(pos):
+            if x == xs[left]:
+                ys.append(ys[left])
+                break
+        else:
+            ys.append(max(ys) + 1)
+    return ys
+
+
+def isomorphic(xs, ys):
+    return letter_to_number(xs) == letter_to_number(ys)
+        
+
+def monotonicity_overgeneration():
+    all_monotonic = {key: val
+                     for key, val in all_monotonicity().items()
+                     if val}
+
+    unique_monotonic = {}
+    for key, val in all_monotonic.items():
+        for key2, val2 in unique_monotonic.items():
+            if isomorphic(key, key2):
+                break
+        else:
+            unique_monotonic[key] = val
+
+    attested_monotonic = show_monotonicity()
+
+    return {key: val
+            for key, val in unique_monotonic.items()
+            for key2 in attested_monotonic
+            if not isomorphic(key, key2)}
+
+try:
+    monotonic_overgen = pickle.load(open("monotonic_overgen.p", "rb"))
+except:
+    monotonic_overgen = monotonicity_overgeneration()
+    pickle.dump(monotonic_overgen, open("monotonic_overgen.p", "wb"))
